@@ -44,16 +44,21 @@ export async function processImage(source, sw, sh, o, env) {
   if (blob.type !== type) type = blob.type;                // browser could not encode the format we asked for
   if (o.target && type !== 'image/png') {
     let tries = 0;
-    while (blob.size > o.target && tries < 6) {
-      let lo = 0.3, hi = Math.min(q0, 0.92), best = null;
-      for (let i = 0; i < 6; i++) {
+    let quality = q0;
+    while (tries < 6) {
+      const hasHeadroom = blob.size <= o.target;
+      let lo = hasHeadroom ? quality : 0.3;
+      let hi = hasHeadroom ? 1 : quality;
+      let best = hasHeadroom ? blob : null;
+      for (let i = 0; i < 8 && hi > lo; i++) {
         const mid = (lo + hi) / 2, b = await env.toBlob(canvas, type, mid);
         if (b.size <= o.target) { best = b; lo = mid; } else hi = mid;
       }
       if (best) { blob = best; break; }
       w = Math.max(16, Math.round(w * 0.85)); h = Math.max(16, Math.round(h * 0.85));
       canvas = draw(w, h, type === 'image/jpeg' ? (o.bg || '#fff') : null);
-      blob = await env.toBlob(canvas, type, 0.3);
+      quality = 0.3;
+      blob = await env.toBlob(canvas, type, quality);
       tries++;
     }
   }
